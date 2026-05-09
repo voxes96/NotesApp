@@ -1,7 +1,8 @@
 package org.betacom.notesapp.model;
 
 import jakarta.persistence.*;
-import org.hibernate.annotations.UuidGenerator;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -12,7 +13,8 @@ public class User {
     
     @Id
     @GeneratedValue(generator = "UUID")
-    @Column(name = "id", nullable = false, updatable = false)
+    @Column(name = "id", columnDefinition = "VARCHAR(36)", nullable = false, updatable = false)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
     private UUID id;
     
     @Column(name = "login", nullable = false, unique = true, length = 64)

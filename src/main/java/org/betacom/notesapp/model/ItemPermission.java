@@ -1,6 +1,8 @@
 package org.betacom.notesapp.model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.util.UUID;
 
@@ -10,7 +12,8 @@ public class ItemPermission {
     
     @Id
     @GeneratedValue(generator = "UUID")
-    @Column(name = "id", updatable = false, nullable = false)
+    @Column(name = "id", columnDefinition = "VARCHAR(36)", updatable = false, nullable = false)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
     private UUID id;
     
     @ManyToOne(fetch = FetchType.LAZY)
