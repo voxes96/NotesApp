@@ -39,8 +39,8 @@ public class ItemService {
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
         
         Item item = new Item();
-        item.setTitle(request.getTitle());
-        item.setContent(request.getContent());
+        item.setTitle(request.title());
+        item.setContent(request.content());
         item.setOwner(user);
         
         Item savedItem = itemRepository.save(item);
@@ -77,11 +77,11 @@ public class ItemService {
 
         checkUpdateItemConstraints(item, request, userLogin);
 
-        if (request.getTitle() != null) {
-            item.setTitle(request.getTitle());
+        if (request.title() != null) {
+            item.setTitle(request.title());
         }
-        if (request.getContent() != null) {
-            item.setContent(request.getContent());
+        if (request.content() != null) {
+            item.setContent(request.content());
         }
         
         Item updatedItem = itemRepository.save(item);
@@ -105,7 +105,7 @@ public class ItemService {
             throw new ForbiddenAccessException("You do not have permission to edit this item");
         }
 
-        if (!item.getVersion().equals(request.getVersion())) {
+        if (!item.getVersion().equals(request.version())) {
             throw new ItemVersionConflictException(
                     "Version conflict - the item has been modified by someone else",
                     item.getVersion()

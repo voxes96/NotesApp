@@ -19,13 +19,13 @@ public class RegisterService {
     }
 
     public RegisterResponse registerUser(RegisterRequest request) {
-        if (userRepository.existsByLogin(request.getLogin())) {
+        if (userRepository.existsByLogin(request.login())) {
             throw new IllegalArgumentException("Login already exists");
         }
 
         User user = new User();
-        user.setLogin(request.getLogin());
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setLogin(request.login());
+        user.setPassword(passwordEncoder.encode(request.password()));
 
         User savedUser = userRepository.save(user);
 

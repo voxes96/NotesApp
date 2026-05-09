@@ -25,10 +25,10 @@ public class AuthService {
     }
     
     public LoginResponse login(LoginRequest request) {
-        User user = userRepository.findByLogin(request.getLogin())
+        User user = userRepository.findByLogin(request.login())
                 .orElseThrow(() -> new BadCredentialsException("Invalid login or password"));
         
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+        if (!passwordEncoder.matches(request.password(), user.getPassword())) {
             throw new BadCredentialsException("Invalid login or password");
         }
         
