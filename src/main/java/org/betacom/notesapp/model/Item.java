@@ -2,6 +2,8 @@ package org.betacom.notesapp.model;
 
 import jakarta.persistence.*;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.NotAudited;
 import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
@@ -9,6 +11,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "items")
+@Audited
 public class Item {
     
     @Id
@@ -19,6 +22,7 @@ public class Item {
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_id", nullable = false)
+    @NotAudited
     private User owner;
     
     @Column(name = "title", nullable = false, length = 255)

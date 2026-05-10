@@ -2,6 +2,7 @@ package org.betacom.notesapp.controller;
 
 import jakarta.validation.Valid;
 import org.betacom.notesapp.dto.CreateItemRequest;
+import org.betacom.notesapp.dto.ItemHistoryResponse;
 import org.betacom.notesapp.dto.ItemListResponse;
 import org.betacom.notesapp.dto.ItemResponse;
 import org.betacom.notesapp.dto.UpdateItemRequest;
@@ -64,6 +65,17 @@ public class ItemController {
         itemService.deleteItem(id, userLogin);
 
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{id}/history")
+    public ResponseEntity<List<ItemHistoryResponse>> getItemHistory(
+            @PathVariable("id") UUID id,
+            Authentication authentication) {
+
+        String userLogin = authentication.getName();
+        List<ItemHistoryResponse> history = itemService.getItemHistory(id, userLogin);
+
+        return ResponseEntity.ok(history);
     }
 
 }
