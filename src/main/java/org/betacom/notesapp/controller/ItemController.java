@@ -5,6 +5,8 @@ import org.betacom.notesapp.dto.CreateItemRequest;
 import org.betacom.notesapp.dto.ItemHistoryResponse;
 import org.betacom.notesapp.dto.ItemListResponse;
 import org.betacom.notesapp.dto.ItemResponse;
+import org.betacom.notesapp.dto.ShareItemRequest;
+import org.betacom.notesapp.dto.ShareItemResponse;
 import org.betacom.notesapp.dto.UpdateItemRequest;
 import org.betacom.notesapp.dto.UpdateItemResponse;
 import org.betacom.notesapp.service.ItemService;
@@ -76,6 +78,30 @@ public class ItemController {
         List<ItemHistoryResponse> history = itemService.getItemHistory(id, userLogin);
 
         return ResponseEntity.ok(history);
+    }
+
+    @PostMapping("/{id}/share")
+    public ResponseEntity<ShareItemResponse> shareItem(
+            @PathVariable("id") UUID id,
+            @Valid @RequestBody ShareItemRequest request,
+            Authentication authentication) {
+
+        String userLogin = authentication.getName();
+        ShareItemResponse response = itemService.shareItem(id, request, userLogin);
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @DeleteMapping("/{id}/share/{userId}")
+    public ResponseEntity<Void> revokeAccess(
+            @PathVariable("id") UUID id,
+            @PathVariable("userId") UUID userId,
+            Authentication authentication) {
+
+        String userLogin = authentication.getName();
+        itemService.revokeAccess(id, userId, userLogin);
+
+        return ResponseEntity.noContent().build();
     }
 
 }

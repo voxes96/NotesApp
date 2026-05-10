@@ -8,19 +8,24 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
 public interface ItemPermissionRepository extends JpaRepository<ItemPermission, UUID> {
 
     boolean existsByItemAndUserLoginAndRole(Item item, String username, PermissionRole role);
-    
+
+    boolean existsByItemIdAndUserId(UUID itemId, UUID userId);
+
+    Optional<ItemPermission> findByItemIdAndUserId(UUID itemId, UUID userId);
+
     List<ItemPermission> findByItem(Item item);
-    
+
     List<ItemPermission> findByItemId(UUID itemId);
-    
+
     List<ItemPermission> findByUser(User user);
-    
+
     List<ItemPermission> findByUserId(UUID userId);
 
 }
