@@ -196,23 +196,23 @@ public class ItemService {
         return history;
     }
 
-    public ShareItemResponse shareItem(UUID itemId, ShareItemRequest request, String userLogin) {
+    public ShareItemResponse shareItem(UUID itemId, ShareItemRequest request, String ownerUsername) {
         Item item = itemRepository.findById(itemId)
                 .orElseThrow(() -> new ItemNotFoundException("Item not found"));
 
-        User owner = userRepository.findByLogin(userLogin)
+        User owner = userRepository.findByLogin(ownerUsername)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+        User targetUser = userRepository.findById(request.userId())
+                .orElseThrow(() -> new UsernameNotFoundException("Target user not found"));
 
         if (!item.getOwner().getId().equals(owner.getId())) {
             throw new ForbiddenAccessException("Only the owner can manage access to this item");
         }
 
-        if (owner.getLogin().equals(userLogin)) {
+        if (owner.getLogin().equals(targetUser.getLogin())) {
             throw new ForbiddenAccessException("Owner cannot share access with themselves");
         }
-
-        User targetUser = userRepository.findById(request.userId())
-                .orElseThrow(() -> new UsernameNotFoundException("Target user not found"));
 
         PermissionRole permissionRole;
         try {
@@ -223,8 +223,6 @@ public class ItemService {
 
         ItemPermission permission = itemPermissionRepository.findByItemIdAndUserId(itemId, request.userId())
                 .orElse(null);
-
-        boolean isUpdate = permission != null;
 
         if (permission == null) {
             permission = new ItemPermission();
