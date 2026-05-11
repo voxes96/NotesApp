@@ -58,7 +58,7 @@ public class ItemController {
         return ResponseEntity.ok(response);
     }
 
-    @DeleteMapping
+    @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteItem(
             @PathVariable("id") UUID id,
             Authentication authentication) {
