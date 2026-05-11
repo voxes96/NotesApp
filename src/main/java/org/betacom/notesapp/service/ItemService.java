@@ -118,8 +118,8 @@ public class ItemService {
             throw new ItemNotFoundException("Item not found or has been deleted");
         }
 
-        if (!item.getOwner().getLogin().equals(userLogin) ||
-                itemPermissionRepository.existsByItemAndUserLoginAndRole(item, userLogin, PermissionRole.EDITOR)) {
+        if (!(item.getOwner().getLogin().equals(userLogin) ||
+                itemPermissionRepository.existsByItemAndUserLoginAndRole(item, userLogin, PermissionRole.EDITOR))) {
             throw new ForbiddenAccessException("You do not have permission to edit this item");
         }
 
@@ -205,6 +205,10 @@ public class ItemService {
 
         if (!item.getOwner().getId().equals(owner.getId())) {
             throw new ForbiddenAccessException("Only the owner can manage access to this item");
+        }
+
+        if (owner.getLogin().equals(userLogin)) {
+            throw new ForbiddenAccessException("Owner cannot share access with themselves");
         }
 
         User targetUser = userRepository.findById(request.userId())
