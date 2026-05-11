@@ -1,7 +1,7 @@
 package org.betacom.notesapp.service;
 
-import org.betacom.notesapp.dto.LoginRequest;
-import org.betacom.notesapp.dto.LoginResponse;
+import org.betacom.notesapp.dto.login.LoginRequest;
+import org.betacom.notesapp.dto.login.LoginResponse;
 import org.betacom.notesapp.model.User;
 import org.betacom.notesapp.repository.UserRepository;
 import org.betacom.notesapp.security.JwtUtil;

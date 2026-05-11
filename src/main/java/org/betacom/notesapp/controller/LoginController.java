@@ -1,8 +1,8 @@
 package org.betacom.notesapp.controller;
 
 import jakarta.validation.Valid;
-import org.betacom.notesapp.dto.LoginRequest;
-import org.betacom.notesapp.dto.LoginResponse;
+import org.betacom.notesapp.dto.login.LoginRequest;
+import org.betacom.notesapp.dto.login.LoginResponse;
 import org.betacom.notesapp.dto.exceptions.ErrorResponse;
 import org.betacom.notesapp.service.AuthService;
 import org.springframework.http.HttpStatus;

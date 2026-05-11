@@ -1,6 +1,6 @@
 package org.betacom.notesapp.service;
 
-import org.betacom.notesapp.dto.*;
+import org.betacom.notesapp.dto.item.*;
 import org.betacom.notesapp.exception.ForbiddenAccessException;
 import org.betacom.notesapp.exception.ItemNotFoundException;
 import org.betacom.notesapp.exception.ItemVersionConflictException;

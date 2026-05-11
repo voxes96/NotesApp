@@ -1,4 +1,4 @@
-package org.betacom.notesapp.dto;
+package org.betacom.notesapp.dto.item;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

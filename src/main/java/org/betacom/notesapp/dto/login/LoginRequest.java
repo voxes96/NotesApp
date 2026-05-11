@@ -1,4 +1,4 @@
-package org.betacom.notesapp.dto;
+package org.betacom.notesapp.dto.login;
 
 import jakarta.validation.constraints.NotBlank;
 

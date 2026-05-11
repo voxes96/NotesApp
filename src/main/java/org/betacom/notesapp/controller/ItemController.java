@@ -1,14 +1,14 @@
 package org.betacom.notesapp.controller;
 
 import jakarta.validation.Valid;
-import org.betacom.notesapp.dto.CreateItemRequest;
-import org.betacom.notesapp.dto.ItemHistoryResponse;
-import org.betacom.notesapp.dto.ItemListResponse;
-import org.betacom.notesapp.dto.ItemResponse;
-import org.betacom.notesapp.dto.ShareItemRequest;
-import org.betacom.notesapp.dto.ShareItemResponse;
-import org.betacom.notesapp.dto.UpdateItemRequest;
-import org.betacom.notesapp.dto.UpdateItemResponse;
+import org.betacom.notesapp.dto.item.CreateItemRequest;
+import org.betacom.notesapp.dto.item.ItemHistoryResponse;
+import org.betacom.notesapp.dto.item.ItemListResponse;
+import org.betacom.notesapp.dto.item.ItemResponse;
+import org.betacom.notesapp.dto.item.ShareItemRequest;
+import org.betacom.notesapp.dto.item.ShareItemResponse;
+import org.betacom.notesapp.dto.item.UpdateItemRequest;
+import org.betacom.notesapp.dto.item.UpdateItemResponse;
 import org.betacom.notesapp.service.ItemService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
