@@ -153,7 +153,7 @@ public class ItemService {
         boolean isOwner = item.getOwner().getId().equals(user.getId());
         boolean hasPermission = itemPermissionRepository.existsByItemIdAndUserId(itemId, user.getId());
 
-        if (!isOwner || !hasPermission) {
+        if (!(isOwner || hasPermission)) {
             throw new ForbiddenAccessException("You do not have access to this item's history");
         }
 
