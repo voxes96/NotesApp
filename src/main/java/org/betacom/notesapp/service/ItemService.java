@@ -1,7 +1,7 @@
 package org.betacom.notesapp.service;
 
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
+import jakarta.transaction.Transactional;
 import org.betacom.notesapp.dto.item.CreateItemRequest;
 import org.betacom.notesapp.dto.item.ItemHistoryResponse;
 import org.betacom.notesapp.dto.item.ItemListResponse;
@@ -42,25 +42,25 @@ public class ItemService {
     private final ItemRepository itemRepository;
     private final UserRepository userRepository;
     private final ItemPermissionRepository itemPermissionRepository;
+    private final EntityManager entityManager;
 
-    @PersistenceContext
-    private EntityManager entityManager;
-
-    ItemService(ItemRepository itemRepository, UserRepository userRepository, ItemPermissionRepository itemPermissionRepository) {
+    ItemService(ItemRepository itemRepository, UserRepository userRepository,
+                ItemPermissionRepository itemPermissionRepository, EntityManager entityManager) {
         this.itemRepository = itemRepository;
         this.userRepository = userRepository;
         this.itemPermissionRepository = itemPermissionRepository;
+        this.entityManager = entityManager;
     }
 
+    @Transactional
     public ItemResponse createItem(CreateItemRequest request, String userLogin) {
-        User user = userRepository.findByLogin(userLogin)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
-        
+        User user = findUserByLogin(userLogin);
+
         Item item = new Item();
         item.setTitle(request.title());
         item.setContent(request.content());
         item.setOwner(user);
-        
+
         Item savedItem = itemRepository.save(item);
         
         return new ItemResponse(
@@ -89,11 +89,13 @@ public class ItemService {
                 .toList();
     }
 
+    @Transactional
     public UpdateItemResponse updateItem(UUID id, UpdateItemRequest request, String userLogin) {
-        Item item = itemRepository.findById(id)
-                .orElseThrow(() -> new ItemNotFoundException("Item not found or has been deleted"));
+        Item item = findItemById(id);
 
-        checkUpdateItemConstraints(item, request, userLogin);
+        validateItemNotDeleted(item);
+        validateUserCanEditItem(item, userLogin);
+        validateVersionMatch(item, request.version());
 
         if (request.title() != null) {
             item.setTitle(request.title());
@@ -101,9 +103,8 @@ public class ItemService {
         if (request.content() != null) {
             item.setContent(request.content());
         }
-        
+
         Item updatedItem = itemRepository.save(item);
-        
         return new UpdateItemResponse(
                 updatedItem.getId(),
                 updatedItem.getTitle(),
@@ -113,57 +114,141 @@ public class ItemService {
         );
     }
 
-    private void checkUpdateItemConstraints(Item item, UpdateItemRequest request, String userLogin) {
-        if (item.getDeleted()) {
-            throw new ItemNotFoundException("Item not found or has been deleted");
-        }
-
-        if (!(item.getOwner().getLogin().equals(userLogin) ||
-                itemPermissionRepository.existsByItemAndUserLoginAndRole(item, userLogin, PermissionRole.EDITOR))) {
-            throw new ForbiddenAccessException("You do not have permission to edit this item");
-        }
-
-        if (!item.getVersion().equals(request.version())) {
-            throw new ItemVersionConflictException(
-                    "Version conflict - the item has been modified by someone else",
-                    item.getVersion()
-            );
-        }
-    }
-
+    @Transactional
     public void deleteItem(UUID id, String userLogin) {
-        Item item = itemRepository.findById(id)
-                .orElseThrow(() -> new ItemNotFoundException("Item not found or has been deleted"));
-
-        if (!item.getOwner().getLogin().equals(userLogin)) {
-            throw new ForbiddenAccessException("You do not have permission to edit this item");
-        }
+        Item item = findItemById(id);
+        validateUserIsOwner(item, userLogin);
 
         item.setDeleted(true);
         itemRepository.save(item);
     }
 
     public List<ItemHistoryResponse> getItemHistory(UUID itemId, String userLogin) {
-        Item item = itemRepository.findById(itemId)
-                .orElseThrow(() -> new ItemNotFoundException("Item not found"));
-
-        User user = userRepository.findByLogin(userLogin)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
-
-        boolean isOwner = item.getOwner().getId().equals(user.getId());
-        boolean hasPermission = itemPermissionRepository.existsByItemIdAndUserId(itemId, user.getId());
-
-        if (!(isOwner || hasPermission)) {
-            throw new ForbiddenAccessException("You do not have access to this item's history");
-        }
+        Item item = findItemById(itemId);
+        User user = findUserByLogin(userLogin);
+        validateUserCanAccessItem(item, user);
 
         AuditReader auditReader = AuditReaderFactory.get(entityManager);
-
         List<?> revisions = auditReader.createQuery()
                 .forRevisionsOfEntity(Item.class, false, true)
                 .add(AuditEntity.id().eq(itemId))
                 .getResultList();
 
+        return buildItemHistory(revisions);
+    }
+
+    @Transactional
+    public ShareItemResponse shareItem(UUID itemId, ShareItemRequest request, String ownerUsername) {
+        Item item = findItemById(itemId);
+        User owner = findUserByLogin(ownerUsername);
+        User targetUser = findUserById(request.userId());
+
+        validateUserIsOwner(item, ownerUsername);
+        validateNotSharingWithSelf(owner, targetUser);
+
+        PermissionRole permissionRole = parsePermissionRole(request.role());
+
+        ItemPermission permission = itemPermissionRepository
+                .findByItemIdAndUserId(itemId, request.userId())
+                .orElseGet(() -> createNewPermission(item, targetUser));
+
+        permission.setRole(permissionRole);
+        ItemPermission savedPermission = itemPermissionRepository.save(permission);
+
+        return new ShareItemResponse(
+                itemId,
+                targetUser.getId(),
+                savedPermission.getRole().name(),
+                LocalDateTime.now()
+        );
+    }
+
+    @Transactional
+    public void revokeAccess(UUID itemId, UUID userId, String userLogin) {
+        Item item = findItemById(itemId);
+        validateUserIsOwner(item, userLogin);
+
+        ItemPermission permission = itemPermissionRepository.findByItemIdAndUserId(itemId, userId)
+                .orElseThrow(() -> new ItemNotFoundException("User does not have access to this item"));
+
+        itemPermissionRepository.delete(permission);
+    }
+
+
+    private User findUserByLogin(String login) {
+        return userRepository.findByLogin(login)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+    }
+
+    private User findUserById(UUID userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+    }
+
+    private Item findItemById(UUID itemId) {
+        return itemRepository.findById(itemId)
+                .orElseThrow(() -> new ItemNotFoundException("Item not found or has been deleted"));
+    }
+
+    private void validateItemNotDeleted(Item item) {
+        if (item.getDeleted()) {
+            throw new ItemNotFoundException("Item not found or has been deleted");
+        }
+    }
+
+    private void validateUserCanEditItem(Item item, String userLogin) {
+        boolean isOwner = item.getOwner().getLogin().equals(userLogin);
+        boolean hasEditorPermission = itemPermissionRepository
+                .existsByItemAndUserLoginAndRole(item, userLogin, PermissionRole.EDITOR);
+
+        if (!isOwner && !hasEditorPermission) {
+            throw new ForbiddenAccessException("You do not have permission to edit this item");
+        }
+    }
+
+    private void validateUserIsOwner(Item item, String userLogin) {
+        if (!item.getOwner().getLogin().equals(userLogin)) {
+            throw new ForbiddenAccessException("Only the owner can manage access to this item");
+        }
+    }
+
+    private void validateVersionMatch(Item item, Integer requestVersion) {
+        if (!item.getVersion().equals(requestVersion)) {
+            throw new ItemVersionConflictException("Version conflict - the item has been modified by someone else", item.getVersion());
+        }
+    }
+
+    private void validateUserCanAccessItem(Item item, User user) {
+        boolean isOwner = item.getOwner().getId().equals(user.getId());
+        boolean hasPermission = itemPermissionRepository.existsByItemIdAndUserId(item.getId(), user.getId());
+
+        if (!isOwner && !hasPermission) {
+            throw new ForbiddenAccessException("You do not have access to this item's history");
+        }
+    }
+
+    private void validateNotSharingWithSelf(User owner, User targetUser) {
+        if (owner.getLogin().equals(targetUser.getLogin())) {
+            throw new ForbiddenAccessException("Owner cannot share access with themselves");
+        }
+    }
+
+    private PermissionRole parsePermissionRole(String role) {
+        try {
+            return PermissionRole.valueOf(role.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid role. Must be VIEWER or EDITOR");
+        }
+    }
+
+    private ItemPermission createNewPermission(Item item, User user) {
+        ItemPermission permission = new ItemPermission();
+        permission.setItem(item);
+        permission.setUser(user);
+        return permission;
+    }
+
+    private List<ItemHistoryResponse> buildItemHistory(List<?> revisions) {
         List<ItemHistoryResponse> history = new ArrayList<>();
 
         for (Object revision : revisions) {
@@ -172,12 +257,7 @@ public class ItemService {
             CustomRevisionEntity revisionEntity = (CustomRevisionEntity) revisionData[1];
             RevisionType revisionType = (RevisionType) revisionData[2];
 
-            String revType = switch (revisionType) {
-                case ADD -> "ADD";
-                case MOD -> "MOD";
-                case DEL -> "DEL";
-            };
-
+            String revType = mapRevisionType(revisionType);
             LocalDateTime timestamp = LocalDateTime.ofInstant(
                     Instant.ofEpochMilli(revisionEntity.getTimestamp()),
                     ZoneId.systemDefault()
@@ -196,66 +276,12 @@ public class ItemService {
         return history;
     }
 
-    public ShareItemResponse shareItem(UUID itemId, ShareItemRequest request, String ownerUsername) {
-        Item item = itemRepository.findById(itemId)
-                .orElseThrow(() -> new ItemNotFoundException("Item not found"));
-
-        User owner = userRepository.findByLogin(ownerUsername)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
-
-        User targetUser = userRepository.findById(request.userId())
-                .orElseThrow(() -> new UsernameNotFoundException("Target user not found"));
-
-        if (!item.getOwner().getId().equals(owner.getId())) {
-            throw new ForbiddenAccessException("Only the owner can manage access to this item");
-        }
-
-        if (owner.getLogin().equals(targetUser.getLogin())) {
-            throw new ForbiddenAccessException("Owner cannot share access with themselves");
-        }
-
-        PermissionRole permissionRole;
-        try {
-            permissionRole = PermissionRole.valueOf(request.role().toUpperCase());
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Invalid role. Must be VIEWER or EDITOR");
-        }
-
-        ItemPermission permission = itemPermissionRepository.findByItemIdAndUserId(itemId, request.userId())
-                .orElse(null);
-
-        if (permission == null) {
-            permission = new ItemPermission();
-            permission.setItem(item);
-            permission.setUser(targetUser);
-        }
-
-        permission.setRole(permissionRole);
-        ItemPermission savedPermission = itemPermissionRepository.save(permission);
-
-        return new ShareItemResponse(
-                itemId,
-                targetUser.getId(),
-                savedPermission.getRole().name(),
-                LocalDateTime.now()
-        );
-    }
-
-    public void revokeAccess(UUID itemId, UUID userId, String userLogin) {
-        Item item = itemRepository.findById(itemId)
-                .orElseThrow(() -> new ItemNotFoundException("Item not found"));
-
-        User owner = userRepository.findByLogin(userLogin)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
-
-        if (!item.getOwner().getId().equals(owner.getId())) {
-            throw new ForbiddenAccessException("Only the owner can manage access to this item");
-        }
-
-        ItemPermission permission = itemPermissionRepository.findByItemIdAndUserId(itemId, userId)
-                .orElseThrow(() -> new ItemNotFoundException("User does not have access to this item"));
-
-        itemPermissionRepository.delete(permission);
+    private String mapRevisionType(RevisionType revisionType) {
+        return switch (revisionType) {
+            case ADD -> "ADD";
+            case MOD -> "MOD";
+            case DEL -> "DEL";
+        };
     }
 
 }
